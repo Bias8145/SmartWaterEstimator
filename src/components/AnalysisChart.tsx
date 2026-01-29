@@ -16,7 +16,7 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision, lang,
   const t = translations[lang];
   if (results.length === 0) return null;
 
-  const hours = results.map(r => r.id); // Use ID (1, 2, 3) instead of time label
+  const hours = results.map(r => r.id);
   const values = results.map(r => r.value);
   
   const maxVal = Math.max(...values);
@@ -68,10 +68,7 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision, lang,
         type: 'line',
         smooth: true,
         symbol: 'none',
-        lineStyle: {
-          width: 2,
-          color: '#6366f1' // Indigo 500
-        },
+        lineStyle: { width: 2, color: '#6366f1' },
         areaStyle: {
           color: {
             type: 'linear',
@@ -89,24 +86,24 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision, lang,
 
   return (
     <Card className="w-full overflow-hidden border shadow-none">
-      <CardHeader className="pb-3 border-b dark:border-zinc-800 border-slate-100">
+      <CardHeader className="pb-4 border-b dark:border-zinc-800 border-slate-100">
         <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-          <LineChart className="w-3.5 h-3.5" />
+          <LineChart className="w-4 h-4" />
           {t.chart_title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-2 mb-4 mt-4">
-          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.peak}</p>
+        <div className="grid grid-cols-3 gap-3 mb-6 mt-4">
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-2xl p-3 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">{t.peak}</p>
             <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatNumber(maxVal, precision)}</p>
           </div>
-          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.avg}</p>
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-2xl p-3 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">{t.avg}</p>
             <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">{formatNumber(avgVal, precision)}</p>
           </div>
-          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.lowest}</p>
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-2xl p-3 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">{t.lowest}</p>
             <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">{formatNumber(minVal, precision)}</p>
           </div>
         </div>

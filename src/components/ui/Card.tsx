@@ -12,7 +12,7 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border shadow-sm transition-colors",
+        "rounded-[2rem] border shadow-sm transition-colors overflow-hidden", // Super rounded
         "bg-white border-slate-200 text-slate-900", // Light
         "dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100", // Dark
         className
@@ -23,7 +23,7 @@ export function Card({ className, ...props }: CardProps) {
 }
 
 export function CardHeader({ className, ...props }: CardProps) {
-  return <div className={cn("flex flex-col space-y-1 p-4", className)} {...props} />;
+  return <div className={cn("flex flex-col space-y-1 p-6", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -36,5 +36,5 @@ export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHead
 }
 
 export function CardContent({ className, ...props }: CardProps) {
-  return <div className={cn("p-4 pt-0", className)} {...props} />;
+  return <div className={cn("p-6 pt-0", className)} {...props} />;
 }

@@ -47,9 +47,9 @@ function App() {
       
       {/* Compact Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-           <div className="flex items-center gap-2">
-              <div className="h-7 w-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+        <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between">
+           <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
                   <Droplets className="w-4 h-4 fill-current" />
               </div>
               <span className="text-sm font-bold tracking-tight">
@@ -57,16 +57,16 @@ function App() {
               </span>
            </div>
 
-           <div className="flex items-center gap-2">
+           <div className="flex items-center gap-3">
               <button 
                 onClick={toggleLang}
-                className="h-8 px-2.5 rounded-md bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-xs font-bold uppercase transition-colors"
+                className="h-9 px-3 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-xs font-bold uppercase transition-colors"
               >
                 {lang}
               </button>
               <button 
                 onClick={toggleTheme}
-                className="h-8 w-8 flex items-center justify-center rounded-md bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
+                className="h-9 w-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
@@ -74,35 +74,35 @@ function App() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-24 pb-12">
+      <div className="max-w-2xl mx-auto px-4 pt-28 pb-12">
         
         {/* Intro */}
-        <div className="mb-6">
-           <h1 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+        <div className="mb-8 px-2">
+           <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-1.5">
             {t.title}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400">
+          <p className="text-sm text-slate-500 dark:text-zinc-400">
             {t.desc}
           </p>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           
           <InputForm onCalculate={handleCalculate} isCalculating={isCalculating} lang={lang} />
 
           {results.length > 0 && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
               <AnalysisChart results={results} precision={precision} lang={lang} theme={theme} />
               <ResultsTable results={results} totalDiff={totalDiff} precision={precision} lang={lang} />
             </div>
           )}
           
           {results.length === 0 && !isCalculating && (
-            <div className="py-12 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl">
-              <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-full mb-3">
-                <Droplets className="w-5 h-5 text-slate-400 dark:text-zinc-500" />
+            <div className="py-16 flex flex-col items-center justify-center text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[2rem]">
+              <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-full mb-4">
+                <Droplets className="w-6 h-6 text-slate-400 dark:text-zinc-500" />
               </div>
-              <p className="text-xs text-slate-400 dark:text-zinc-500">
+              <p className="text-sm text-slate-400 dark:text-zinc-500">
                 {lang === 'id' ? 'Siap untuk analisis data.' : 'Ready to analyze data.'}
               </p>
             </div>
@@ -110,7 +110,7 @@ function App() {
 
         </div>
 
-        <footer className="mt-12 text-center border-t border-slate-200 dark:border-zinc-800 pt-6">
+        <footer className="mt-16 text-center border-t border-slate-200 dark:border-zinc-800 pt-8">
           <p className="text-[10px] text-slate-400 dark:text-zinc-600">
             &copy; {new Date().getFullYear()} Smart Water Analytics.
           </p>
