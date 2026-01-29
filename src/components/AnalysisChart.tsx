@@ -1,14 +1,15 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
-import { CalculationResult } from '../utils/calculator';
+import { CalculationResult, formatNumber } from '../utils/calculator';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { LineChart } from 'lucide-react';
 
 interface AnalysisChartProps {
   results: CalculationResult[];
+  precision: number;
 }
 
-const AnalysisChart: React.FC<AnalysisChartProps> = ({ results }) => {
+const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision }) => {
   if (results.length === 0) return null;
 
   const hours = results.map(r => r.hourLabel);
@@ -17,7 +18,7 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results }) => {
   // Find stats
   const maxVal = Math.max(...values);
   const minVal = Math.min(...values);
-  const avgVal = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+  const avgVal = (values.reduce((a, b) => a + b, 0) / values.length);
 
   const option = {
     tooltip: {
@@ -26,7 +27,10 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results }) => {
       borderRadius: 12,
       padding: 12,
       textStyle: { color: '#1e293b' },
-      formatter: '{b} <br/> Usage: <b>{c} m³</b>'
+      formatter: (params: any) => {
+          const val = params[0].value;
+          return `${params[0].name} <br/> Usage: <b>${formatNumber(val, precision)} m³</b>`;
+      }
     },
     grid: {
       left: '3%',
@@ -102,15 +106,15 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results }) => {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-indigo-50 rounded-2xl p-4 text-center">
             <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Peak</p>
-            <p className="text-xl font-bold text-indigo-700">{maxVal.toFixed(1)}</p>
+            <p className="text-xl font-bold text-indigo-700">{formatNumber(maxVal, precision)}</p>
           </div>
           <div className="bg-emerald-50 rounded-2xl p-4 text-center">
             <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Average</p>
-            <p className="text-xl font-bold text-emerald-700">{avgVal}</p>
+            <p className="text-xl font-bold text-emerald-700">{formatNumber(avgVal, precision)}</p>
           </div>
           <div className="bg-slate-50 rounded-2xl p-4 text-center">
             <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Lowest</p>
-            <p className="text-xl font-bold text-slate-700">{minVal.toFixed(1)}</p>
+            <p className="text-xl font-bold text-slate-700">{formatNumber(minVal, precision)}</p>
           </div>
         </div>
         <div className="h-[300px] w-full">

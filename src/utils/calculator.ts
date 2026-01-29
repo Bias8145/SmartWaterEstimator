@@ -43,8 +43,9 @@ export const distributeValue = (
   startMeter: number,
   endMeter: number,
   divisions: number,
-  startHour: number = 8, // Default start time 08:00
-  profile: UsageProfile = 'residential'
+  startHour: number = 8,
+  profile: UsageProfile = 'residential',
+  precision: number = 1
 ): CalculationResult[] => {
   const totalDiff = endMeter - startMeter;
   
@@ -52,15 +53,33 @@ export const distributeValue = (
     return [];
   }
 
-  // 1. Calculate Base Weights for each hour
+  const factor = Math.pow(10, precision); // e.g., 10 for 1 decimal, 1 for 0 decimals
+
+  // 1. Calculate Base Weights with HIGH Volatility
   let totalWeight = 0;
   const segments: { hour: number; weight: number; rawValue: number; finalValue: number }[] = [];
 
   for (let i = 0; i < divisions; i++) {
     const currentHour = (startHour + i) % 24;
-    // Add some randomness to the weight so it's not identical every time (±15%)
-    const randomFactor = 0.85 + Math.random() * 0.3; 
     const baseWeight = getWeight(currentHour, profile);
+    
+    // Volatility Logic:
+    // 1. Base Randomness: ±50% variance (0.5 to 1.5) - Increased base variance
+    // 2. Spike Chance: 20% chance to double the weight (simulating a shower or machine)
+    // 3. Drop Chance: 20% chance to halve the weight (simulating inactivity)
+    
+    let randomFactor = 0.5 + Math.random() * 1.0; 
+    
+    // Add realistic spikes that can override the trend
+    // E.g., even if baseWeight is low (night), a big spike can make it high
+    if (Math.random() < 0.20) randomFactor *= 2.5; // Stronger spike
+    if (Math.random() < 0.20) randomFactor *= 0.2; // Stronger drop
+    
+    // For very short durations, force extreme variance to ensure "Ups and Downs"
+    if (divisions < 6) {
+        randomFactor = 0.2 + Math.random() * 3.0;
+    }
+
     const weight = baseWeight * randomFactor;
     
     segments.push({
@@ -73,69 +92,71 @@ export const distributeValue = (
   }
 
   // 2. Distribute Total Diff based on weights
-  // We need 1 decimal place precision.
   let currentDistributedSum = 0;
 
   segments.forEach(seg => {
     const rawShare = (seg.weight / totalWeight) * totalDiff;
-    // Floor to 1 decimal place initially to avoid overshooting
-    const roundedShare = Math.floor(rawShare * 10) / 10;
+    // Floor to precision to avoid overshooting
+    const roundedShare = Math.floor(rawShare * factor) / factor;
     seg.finalValue = roundedShare;
     currentDistributedSum += roundedShare;
   });
 
   // 3. Fix the Remainder (The "Smart" Correction)
   // Because we floored everything, we have a remainder to distribute.
-  // Remainder will be in multiples of 0.1
-  let remainder = Math.round((totalDiff - currentDistributedSum) * 10) / 10;
-  
-  // Distribute remainder 0.1 at a time to the segments with the highest weights (peaks)
-  // or randomly among the top 50% to keep it natural.
-  while (remainder > 0.05) { // tolerance for float errors
-    // Pick a random segment, preferably one that is a "peak" (high weight)
-    // to absorb the extra usage naturally.
-    const candidates = segments.filter(s => s.weight > (totalWeight / divisions) * 0.5);
-    const targetIndex = Math.floor(Math.random() * candidates.length);
-    const targetSegment = candidates[targetIndex] || segments[Math.floor(Math.random() * segments.length)];
+  let remainder = Math.round((totalDiff - currentDistributedSum) * factor) / factor;
+  const step = 1 / factor; // e.g., 0.1 or 1 (if precision is 0)
+
+  // Distribute remainder randomly but weighted towards peaks
+  let safetyCounter = 0;
+  while (remainder >= step / 2 && safetyCounter < 10000) { 
+    const targetIndex = Math.floor(Math.random() * segments.length);
+    const targetSegment = segments[targetIndex];
     
-    targetSegment.finalValue = parseFloat((targetSegment.finalValue + 0.1).toFixed(1));
-    remainder -= 0.1;
+    targetSegment.finalValue = parseFloat((targetSegment.finalValue + step).toFixed(precision));
+    remainder -= step;
+    safetyCounter++;
   }
 
   // 4. Construct Final Results
   const results: CalculationResult[] = [];
   let runningTotal = startMeter;
 
+  // Calculate average for peak detection
+  const avgUsage = totalDiff / divisions;
+
   segments.forEach((seg, index) => {
     runningTotal += seg.finalValue;
     
-    // Determine if it's a peak hour for labeling
-    const isPeak = seg.weight > (totalWeight / divisions) * 1.2;
+    // Determine if it's a peak relative to this specific set of data
+    const isPeak = seg.finalValue > avgUsage * 1.1;
 
     results.push({
       id: index + 1,
       label: `Period ${index + 1}`,
       hourLabel: `${String(seg.hour).padStart(2, '0')}:00`,
       value: seg.finalValue,
-      cumulative: parseFloat(runningTotal.toFixed(1)),
+      cumulative: parseFloat(runningTotal.toFixed(precision)),
       isPeak
     });
   });
 
   // Final sanity check: Force the last cumulative to be exactly EndMeter
-  // just in case of any tiny float drift, though the logic above handles it.
   if (results.length > 0) {
     const last = results[results.length - 1];
     const diff = endMeter - last.cumulative;
-    if (Math.abs(diff) > 0.001) {
+    
+    // If there's a tiny drift (floating point error)
+    if (Math.abs(diff) > (step / 10)) {
        last.cumulative = endMeter;
-       last.value = parseFloat((last.value + diff).toFixed(1));
+       // Adjust the last value to match, ensuring we respect precision
+       last.value = parseFloat((last.value + diff).toFixed(precision));
     }
   }
 
   return results;
 };
 
-export const formatNumber = (num: number): string => {
-  return num.toFixed(1);
+export const formatNumber = (num: number, precision: number = 1): string => {
+  return num.toFixed(precision);
 };
