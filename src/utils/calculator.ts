@@ -1,27 +1,73 @@
 /**
- * Smart Estimation Logic
- * Handles fluctuating water usage patterns based on time of day.
+ * Smart Estimation Logic with Pattern Learning
+ * Handles fluctuating water usage patterns and learns from historical data.
  */
 
 export interface CalculationResult {
   id: number;
   label: string;
-  hourLabel: string; // e.g., "08:00 - 09:00"
-  value: number; // The consumption
-  cumulative: number; // The meter reading
+  hourLabel: string;
+  value: number;
+  cumulative: number;
   isPeak: boolean;
-  targetRange?: string; // For display purposes: "34 - 52"
+  targetRange?: string;
 }
 
 export type UsageProfile = 'residential' | 'commercial' | 'flat';
 
-// Specific Ranges defined by user
-// 05:30 -> Hour 5 (05:00-06:00)
-// 06:30 -> Hour 6 (06:00-07:00)
-// 11:30 -> Hour 11
-// 12:30 -> Hour 12
-// 15:30 -> Hour 15
-// 16:30 -> Hour 16
+// --- LEARNING MODULE START ---
+const MEMORY_KEY = 'smart_water_pattern_memory';
+
+interface HourlyWeight {
+  totalWeight: number;
+  count: number;
+}
+
+// Load memory from local storage
+const getMemory = (): Record<number, HourlyWeight> => {
+  try {
+    const data = localStorage.getItem(MEMORY_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+};
+
+// Save new pattern to memory
+const learnPattern = (results: CalculationResult[], startHour: number) => {
+  const memory = getMemory();
+  const totalVolume = results.reduce((acc, curr) => acc + curr.value, 0);
+
+  if (totalVolume === 0) return;
+
+  results.forEach((res, index) => {
+    // Determine actual hour (0-23)
+    const hour = (startHour + index) % 24;
+    
+    // Calculate weight (percentage of total usage)
+    const weight = res.value / totalVolume;
+
+    if (!memory[hour]) {
+      memory[hour] = { totalWeight: 0, count: 0 };
+    }
+
+    memory[hour].totalWeight += weight;
+    memory[hour].count += 1;
+  });
+
+  localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+};
+
+// Get learned bias for a specific hour
+const getLearnedBias = (hour: number): number | null => {
+  const memory = getMemory();
+  if (memory[hour] && memory[hour].count > 0) {
+    return memory[hour].totalWeight / memory[hour].count;
+  }
+  return null;
+};
+// --- LEARNING MODULE END ---
+
 const TARGET_RANGES: Record<number, [number, number]> = {
   5: [15, 28],
   6: [15, 29],
@@ -31,7 +77,6 @@ const TARGET_RANGES: Record<number, [number, number]> = {
   16: [22, 36]
 };
 
-// Helper to get a random number in range
 const randomInRange = (min: number, max: number) => {
   return Math.random() * (max - min) + min;
 };
@@ -52,8 +97,7 @@ export const distributeValue = (
 
   const factor = Math.pow(10, precision); 
   
-  // 1. Generate "Ideal" Profile based on Rules
-  // We create a raw distribution first, then scale it to match the Total Diff.
+  // 1. Generate Raw Profile (incorporating Learning)
   let segments: { 
     hour: number; 
     rawValue: number; 
@@ -68,23 +112,38 @@ export const distributeValue = (
   for (let i = 0; i < divisions; i++) {
     const currentHour = (startHour + i) % 24;
     const range = TARGET_RANGES[currentHour];
+    const learnedWeight = getLearnedBias(currentHour);
     
     let rawVal = 0;
     let isPeak = false;
 
+    // Base Logic
     if (range && profile === 'residential') {
-      // It's a specific target hour
       rawVal = randomInRange(range[0], range[1]);
       isPeak = true;
     } else {
-      // Non-target hour: Generate a low "base" usage
-      // e.g., 2 to 8 m3 for quiet hours
-      // Night time (22-04) should be lower
       if (currentHour >= 22 || currentHour <= 4) {
          rawVal = randomInRange(1, 4);
       } else {
          rawVal = randomInRange(5, 12);
       }
+    }
+
+    // Apply Learning (Influence)
+    // If we have learned data, we blend it: 70% Base Rule, 30% Learned History
+    // We normalize learned weight (which is a %) to a magnitude comparable to rawVal
+    if (learnedWeight !== null) {
+       // Estimate a magnitude based on current rawVal to scale the weight
+       // This is a heuristic to nudge the random value towards historical trends
+       const learnedMagnitude = learnedWeight * (idealTotal || (rawVal * divisions)); 
+       // Since idealTotal is building up, we use a simpler multiplier for now
+       // Let's just boost/dampen based on relative weight
+       // Average hourly weight is 1/24 (~0.04). 
+       
+       const influenceFactor = learnedWeight / 0.04; // > 1 means heavy usage hour historically
+       
+       // Blend:
+       rawVal = (rawVal * 0.7) + (rawVal * influenceFactor * 0.3);
     }
 
     segments.push({
@@ -100,30 +159,23 @@ export const distributeValue = (
   }
 
   // 2. Scale to match Actual Total
-  // If user inputs 100, but our ideal profile sums to 200, we scale everything by 0.5
   const scaleRatio = totalDiff / idealTotal;
-
   segments.forEach(seg => {
     seg.rawValue = seg.rawValue * scaleRatio;
   });
 
-  // 3. SMOOTHING & BALANCING (The "Avoid 49 vs 11" Rule)
-  // We iterate through adjacent non-peak pairs and balance them if they are too jagged.
-  // We do this BEFORE rounding to keep precision.
+  // 3. Smoothing
   if (divisions > 1) {
     for (let i = 0; i < segments.length - 1; i++) {
       const curr = segments[i];
       const next = segments[i+1];
 
-      // Only smooth if BOTH are non-peak (Peaks have their own volatility rules)
       if (!curr.isPeak && !next.isPeak) {
          const pairTotal = curr.rawValue + next.rawValue;
          const diff = Math.abs(curr.rawValue - next.rawValue);
          
-         // If difference is more than 30% of the pair total, smooth it
          if (diff > (pairTotal * 0.3)) {
             const avg = pairTotal / 2;
-            // Add a tiny bit of noise so they aren't identical
             const noise = avg * 0.1 * (Math.random() - 0.5); 
             curr.rawValue = avg + noise;
             next.rawValue = avg - noise;
@@ -140,20 +192,18 @@ export const distributeValue = (
     currentDistributedSum += rounded;
   });
 
-  // 5. Fix Remainder (Exact Sum Logic)
+  // 5. Fix Remainder
   let remainder = Math.round((totalDiff - currentDistributedSum) * factor) / factor;
   const step = 1 / factor;
-
   let safety = 0;
+
   while (remainder > (step/10) && safety < 1000) {
-     // Distribute remainder to random segments, preferring Peaks to keep non-peaks smooth
      const targetIdx = Math.floor(Math.random() * segments.length);
      segments[targetIdx].finalValue = parseFloat((segments[targetIdx].finalValue + step).toFixed(precision));
      remainder -= step;
      safety++;
   }
   
-  // Handle negative remainder (if we overshot due to rounding up)
   while (remainder < -(step/10) && safety < 2000) {
      const targetIdx = Math.floor(Math.random() * segments.length);
      if (segments[targetIdx].finalValue > step) {
@@ -170,8 +220,6 @@ export const distributeValue = (
   segments.forEach((seg, index) => {
     runningTotal += seg.finalValue;
     
-    // Format target range for display (scaled if necessary, or raw if close)
-    // We show the raw rule range to help user verify logic, even if scaled value is different
     let rangeDisplay = "-";
     if (seg.min && seg.max) {
         rangeDisplay = `${seg.min} - ${seg.max}`;
@@ -197,6 +245,10 @@ export const distributeValue = (
           last.value = parseFloat((last.value + diff).toFixed(precision));
       }
   }
+
+  // --- TRIGGER LEARNING ---
+  // We save this pattern to memory so next time it influences the generation
+  learnPattern(results, startHour);
 
   return results;
 };

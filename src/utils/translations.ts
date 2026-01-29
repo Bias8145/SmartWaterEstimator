@@ -1,18 +1,19 @@
 export const translations = {
   id: {
     title: "Estimasi Meter Air",
-    subtitle: "Analisis Cerdas",
+    subtitle: "Alat Bantu Cerdas",
     desc: "Generator pola pemakaian air fluktuatif dengan presisi tinggi.",
     
-    // Form
-    config: "Konfigurasi",
-    usage_time: "Waktu & Durasi",
-    duration: "Durasi (Jam)",
-    profile: "Pola Pemakaian",
-    meter_readings: "Angka Meter",
+    // Form Headers
+    config_title: "KONFIGURASI",
+    meter_section: "ANGKA METER",
+    duration_section: "DURASI (JAM)",
+    precision_section: "# PRESISI DESIMAL",
+    profile_section: "POLA PEMAKAIAN",
+
+    // Form Inputs
     start_meter: "Meter Awal",
     end_meter: "Meter Akhir",
-    precision: "Presisi Desimal",
     generate_btn: "Analisis Data",
     processing: "Memproses...",
     
@@ -43,19 +44,20 @@ export const translations = {
     err_logic: "Meter Akhir harus > Awal.",
   },
   en: {
-    title: "Water Meter Estimator",
-    subtitle: "Smart Analytics",
-    desc: "Fluctuating water usage pattern generator with high precision.",
+    title: "Water Meter Estimation",
+    subtitle: "Smart Support Tool",
+    desc: "High-precision fluctuating water usage pattern generator.",
     
-    // Form
-    config: "Configuration",
-    usage_time: "Time & Duration",
-    duration: "Duration (Hours)",
-    profile: "Usage Profile",
-    meter_readings: "Meter Readings",
+    // Form Headers
+    config_title: "CONFIGURATION",
+    meter_section: "METER READINGS",
+    duration_section: "DURATION (HOURS)",
+    precision_section: "# DECIMAL PRECISION",
+    profile_section: "USAGE PATTERN",
+
+    // Form Inputs
     start_meter: "Start Meter",
     end_meter: "End Meter",
-    precision: "Decimal Precision",
     generate_btn: "Generate Analysis",
     processing: "Processing...",
     
