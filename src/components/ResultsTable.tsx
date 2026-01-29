@@ -1,5 +1,5 @@
 import React from 'react';
-import { Copy, CheckCheck, Table2, TrendingUp, TrendingDown, Droplets, Gauge } from 'lucide-react';
+import { Copy, CheckCheck, Table2, TrendingUp, TrendingDown, Droplets, Gauge, Target } from 'lucide-react';
 import { CalculationResult, formatNumber } from '../utils/calculator';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { translations } from '../utils/translations';
@@ -57,6 +57,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, totalDiff, precisi
             <thead className="bg-slate-50 dark:bg-zinc-800/50 text-slate-500 dark:text-zinc-500 font-semibold border-b border-slate-100 dark:border-zinc-800">
               <tr>
                 <th className="px-6 py-4 w-24">{t.time}</th>
+                <th className="px-6 py-4 text-center hidden sm:table-cell">
+                   <div className="flex items-center justify-center gap-1.5">
+                      <Target className="w-3 h-3 text-slate-400" />
+                      Range
+                   </div>
+                </th>
                 <th className="px-6 py-4">
                    <div className="flex items-center gap-1.5">
                       <Gauge className="w-3 h-3 text-slate-400" />
@@ -75,7 +81,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, totalDiff, precisi
               {results.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors group">
                   <td className="px-6 py-3 font-mono text-[10px] text-slate-400 dark:text-zinc-500">
-                    {String(row.id).padStart(2, '0')}
+                    {row.hourLabel}
+                  </td>
+                  <td className="px-6 py-3 font-mono text-[10px] text-center text-slate-400 dark:text-zinc-600 hidden sm:table-cell">
+                    {row.targetRange}
                   </td>
                   <td className="px-6 py-3 font-mono text-slate-600 dark:text-zinc-300">
                     {formatNumber(row.cumulative, precision)}
@@ -99,6 +108,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, totalDiff, precisi
             <tfoot className="bg-slate-50 dark:bg-zinc-800/50 font-bold text-slate-900 dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-800">
               <tr>
                 <td className="px-6 py-4 text-[10px] uppercase tracking-wider text-slate-400 dark:text-zinc-500">Total</td>
+                <td className="hidden sm:table-cell"></td>
                 <td className="px-6 py-4 text-xs text-slate-400 dark:text-zinc-500 font-normal">
                   {t.verified}
                 </td>
