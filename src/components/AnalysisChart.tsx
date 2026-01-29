@@ -3,39 +3,47 @@ import ReactECharts from 'echarts-for-react';
 import { CalculationResult, formatNumber } from '../utils/calculator';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { LineChart } from 'lucide-react';
+import { translations } from '../utils/translations';
 
 interface AnalysisChartProps {
   results: CalculationResult[];
   precision: number;
+  lang: 'id' | 'en';
+  theme: 'dark' | 'light';
 }
 
-const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision }) => {
+const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision, lang, theme }) => {
+  const t = translations[lang];
   if (results.length === 0) return null;
 
-  const hours = results.map(r => r.hourLabel);
+  const hours = results.map(r => r.id); // Use ID (1, 2, 3) instead of time label
   const values = results.map(r => r.value);
   
-  // Find stats
   const maxVal = Math.max(...values);
   const minVal = Math.min(...values);
   const avgVal = (values.reduce((a, b) => a + b, 0) / values.length);
 
+  const isDark = theme === 'dark';
+  const textColor = isDark ? '#a1a1aa' : '#64748b';
+  const gridColor = isDark ? '#27272a' : '#e2e8f0';
+
   const option = {
+    backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      borderRadius: 12,
-      padding: 12,
-      textStyle: { color: '#1e293b' },
+      backgroundColor: isDark ? 'rgba(24, 24, 27, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+      borderColor: isDark ? '#3f3f46' : '#e2e8f0',
+      textStyle: { color: isDark ? '#f4f4f5' : '#1e293b', fontSize: 12 },
       formatter: (params: any) => {
           const val = params[0].value;
-          return `${params[0].name} <br/> Usage: <b>${formatNumber(val, precision)} m³</b>`;
+          return `${t.time} ${params[0].name} <br/> ${t.usage}: <b>${formatNumber(val, precision)} m³</b>`;
       }
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
+      left: '2%',
+      right: '2%',
+      bottom: '2%',
+      top: '10%',
       containLabel: true,
       show: false
     },
@@ -45,39 +53,24 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision }) => 
       data: hours,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: '#64748b', fontSize: 11 }
+      axisLabel: { color: textColor, fontSize: 10 }
     },
     yAxis: {
       type: 'value',
       splitLine: {
-        lineStyle: { type: 'dashed', color: '#e2e8f0' }
+        lineStyle: { type: 'dashed', color: gridColor }
       },
-      axisLabel: { color: '#64748b' }
+      axisLabel: { color: textColor, fontSize: 10 }
     },
     series: [
       {
         name: 'Usage',
         type: 'line',
         smooth: true,
-        symbol: 'circle',
-        symbolSize: 8,
-        itemStyle: {
-          color: '#6366f1',
-          borderColor: '#fff',
-          borderWidth: 2,
-          shadowColor: 'rgba(99, 102, 241, 0.3)',
-          shadowBlur: 10
-        },
+        symbol: 'none',
         lineStyle: {
-          width: 4,
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 1, y2: 0,
-            colorStops: [
-              { offset: 0, color: '#6366f1' }, // Indigo 500
-              { offset: 1, color: '#ec4899' }  // Pink 500
-            ]
-          }
+          width: 2,
+          color: '#6366f1' // Indigo 500
         },
         areaStyle: {
           color: {
@@ -95,29 +88,29 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ results, precision }) => 
   };
 
   return (
-    <Card className="w-full overflow-hidden border-none shadow-xl shadow-indigo-100/50 bg-white/80 backdrop-blur-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-lg text-slate-700">
-          <LineChart className="w-5 h-5 text-indigo-500" />
-          Smart Usage Analysis
+    <Card className="w-full overflow-hidden border shadow-none">
+      <CardHeader className="pb-3 border-b dark:border-zinc-800 border-slate-100">
+        <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+          <LineChart className="w-3.5 h-3.5" />
+          {t.chart_title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-indigo-50 rounded-2xl p-4 text-center">
-            <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Peak</p>
-            <p className="text-xl font-bold text-indigo-700">{formatNumber(maxVal, precision)}</p>
+        <div className="grid grid-cols-3 gap-2 mb-4 mt-4">
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.peak}</p>
+            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{formatNumber(maxVal, precision)}</p>
           </div>
-          <div className="bg-emerald-50 rounded-2xl p-4 text-center">
-            <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Average</p>
-            <p className="text-xl font-bold text-emerald-700">{formatNumber(avgVal, precision)}</p>
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.avg}</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">{formatNumber(avgVal, precision)}</p>
           </div>
-          <div className="bg-slate-50 rounded-2xl p-4 text-center">
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Lowest</p>
-            <p className="text-xl font-bold text-slate-700">{formatNumber(minVal, precision)}</p>
+          <div className="bg-slate-50 dark:bg-zinc-800 rounded-lg p-2 text-center">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t.lowest}</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">{formatNumber(minVal, precision)}</p>
           </div>
         </div>
-        <div className="h-[300px] w-full">
+        <div className="h-[200px] w-full">
           <ReactECharts option={option} style={{ height: '100%', width: '100%' }} />
         </div>
       </CardContent>

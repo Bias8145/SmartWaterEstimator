@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Calculator, AlertCircle, RefreshCw, Clock, Building2, Home, Hash, Gauge, Timer } from 'lucide-react';
+import { Calculator, AlertCircle, RefreshCw, Building2, Home, Activity, Gauge, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { UsageProfile } from '../utils/calculator';
+import { translations } from '../utils/translations';
 
 interface InputFormProps {
   onCalculate: (start: number, end: number, divisions: number, startHour: number, profile: UsageProfile, precision: number) => void;
   isCalculating: boolean;
+  lang: 'id' | 'en';
 }
 
-const InputForm: React.FC<InputFormProps> = ({ onCalculate, isCalculating }) => {
+const InputForm: React.FC<InputFormProps> = ({ onCalculate, isCalculating, lang }) => {
+  const t = translations[lang];
+  
   const [start, setStart] = useState<string>('');
   const [end, setEnd] = useState<string>('');
   const [divisions, setDivisions] = useState<string>('24');
-  const [startHour, setStartHour] = useState<string>('08');
   const [profile, setProfile] = useState<UsageProfile>('residential');
   const [precision, setPrecision] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
@@ -24,20 +27,22 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, isCalculating }) => 
     const startNum = parseFloat(start);
     const endNum = parseFloat(end);
     const divNum = parseInt(divisions);
-    const hourNum = parseInt(startHour);
+    
+    // Use real-time current hour from user's system
+    const hourNum = new Date().getHours();
 
     if (isNaN(startNum) || isNaN(endNum) || isNaN(divNum)) {
-      setError('Please enter valid numbers.');
+      setError(t.err_num);
       return;
     }
 
     if (divNum <= 0) {
-      setError('Duration must be greater than 0.');
+      setError(t.err_dur);
       return;
     }
 
     if (startNum >= endNum) {
-      setError('End meter > Start meter required.');
+      setError(t.err_logic);
       return;
     }
 
@@ -45,159 +50,135 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, isCalculating }) => 
   };
 
   return (
-    <Card className="w-full border-none shadow-xl shadow-indigo-100/50 bg-white/80 backdrop-blur-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-xl text-indigo-900">
-          <Calculator className="w-6 h-6 text-indigo-500" />
-          Smart Configuration
+    <Card className="w-full border shadow-none">
+      <CardHeader className="pb-3 border-b dark:border-zinc-800 border-slate-100 mb-4">
+        <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+          <Calculator className="w-3.5 h-3.5" />
+          {t.config}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* LEFT COLUMN: USAGE PARAMETERS */}
-            <div className="space-y-5">
-               <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <Timer className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Usage & Time</h3>
-               </div>
-
-               {/* Time & Duration */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Start Time</label>
-                    <div className="relative">
-                      <Clock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-                      <select
-                        value={startHour}
-                        onChange={(e) => setStartHour(e.target.value)}
-                        className="flex h-12 w-full appearance-none rounded-2xl border-slate-200 bg-slate-50 pl-12 pr-4 text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
-                      >
-                        {Array.from({ length: 24 }).map((_, i) => (
-                          <option key={i} value={i}>
-                            {String(i).padStart(2, '0')}:00
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Duration (Hours)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="744"
-                      value={divisions}
-                      onChange={(e) => setDivisions(e.target.value)}
-                      className="flex h-12 w-full rounded-2xl border-slate-200 bg-slate-50 px-4 text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Usage Profile */}
-                <div className="space-y-3 pt-2">
-                  <label className="text-sm font-medium text-slate-700">Usage Pattern</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setProfile('residential')}
-                      className={`flex flex-col items-center justify-center gap-1 p-2 rounded-2xl border-2 transition-all ${
-                        profile === 'residential'
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                          : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Home className="w-5 h-5" />
-                      <span className="text-[10px] font-bold uppercase">Home</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProfile('commercial')}
-                      className={`flex flex-col items-center justify-center gap-1 p-2 rounded-2xl border-2 transition-all ${
-                        profile === 'commercial'
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                          : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Building2 className="w-5 h-5" />
-                      <span className="text-[10px] font-bold uppercase">Biz</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProfile('flat')}
-                      className={`flex flex-col items-center justify-center gap-1 p-2 rounded-2xl border-2 transition-all ${
-                        profile === 'flat'
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                          : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                      <span className="text-[10px] font-bold uppercase">Flat</span>
-                    </button>
-                  </div>
-                </div>
-            </div>
-
-            {/* RIGHT COLUMN: METER READINGS */}
-            <div className="space-y-5">
-               <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <Gauge className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Meter Readings</h3>
-               </div>
-
-               <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Start Meter</label>
+          {/* Row 1: Meter Readings (Horizontal) */}
+          <div className="space-y-2">
+             <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500 tracking-wider flex items-center gap-1">
+                <Gauge className="w-3 h-3" /> {t.meter_readings}
+             </label>
+             <div className="flex gap-3">
+                <div className="flex-1 space-y-1">
                     <input
                       type="number"
                       step="any"
                       placeholder="0.0"
                       value={start}
                       onChange={(e) => setStart(e.target.value)}
-                      className="flex h-12 w-full rounded-2xl border-slate-200 bg-slate-50 px-4 text-lg font-mono text-slate-900 placeholder:text-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
+                      className="w-full h-9 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 text-xs font-mono text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">End Meter</label>
+                    <span className="text-[10px] text-slate-400 ml-1">{t.start_meter}</span>
+                </div>
+                <div className="flex-1 space-y-1">
                     <input
                       type="number"
                       step="any"
                       placeholder="0.0"
                       value={end}
                       onChange={(e) => setEnd(e.target.value)}
-                      className="flex h-12 w-full rounded-2xl border-slate-200 bg-slate-50 px-4 text-lg font-mono text-slate-900 placeholder:text-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none"
+                      className="w-full h-9 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 text-xs font-mono text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
                     />
-                  </div>
-               </div>
+                    <span className="text-[10px] text-slate-400 ml-1">{t.end_meter}</span>
+                </div>
+             </div>
+          </div>
 
-               {/* Precision Setting */}
-               <div className="space-y-3 pt-2">
-                <label className="text-sm font-medium text-slate-700">Decimal Precision</label>
-                <div className="flex gap-2">
-                  {[0, 1, 2, 3].map((p) => (
+          <div className="grid grid-cols-2 gap-4">
+            {/* Duration */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500 tracking-wider flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> {t.duration}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="744"
+                  value={divisions}
+                  onChange={(e) => setDivisions(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 px-3 text-xs text-slate-900 dark:text-zinc-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                />
+            </div>
+
+            {/* Precision */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500 tracking-wider flex items-center gap-1">
+                   # {t.precision}
+                </label>
+                <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-700">
+                  {[0, 1, 2].map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setPrecision(p)}
-                      className={`flex-1 flex items-center justify-center h-10 rounded-xl border-2 transition-all ${
+                      className={`flex-1 h-9 text-[10px] font-bold transition-colors ${
                         precision === p
-                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                          : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-700'
                       }`}
                     >
-                      <span className="text-xs font-bold">{p === 0 ? '0' : `0.${'0'.repeat(p)}`}</span>
+                      {p === 0 ? '0' : `0.${'0'.repeat(p)}`}
                     </button>
                   ))}
                 </div>
-              </div>
+            </div>
+          </div>
+
+          {/* Profile */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500 tracking-wider flex items-center gap-1">
+                <Activity className="w-3 h-3" /> {t.profile}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProfile('residential')}
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border transition-all ${
+                    profile === 'residential'
+                      ? 'border-indigo-600 bg-indigo-600/10 text-indigo-600 dark:text-indigo-400'
+                      : 'border-slate-200 dark:border-zinc-700 bg-transparent text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase">{t.residential}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfile('commercial')}
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border transition-all ${
+                    profile === 'commercial'
+                      ? 'border-indigo-600 bg-indigo-600/10 text-indigo-600 dark:text-indigo-400'
+                      : 'border-slate-200 dark:border-zinc-700 bg-transparent text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase">{t.commercial}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfile('flat')}
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border transition-all ${
+                    profile === 'flat'
+                      ? 'border-indigo-600 bg-indigo-600/10 text-indigo-600 dark:text-indigo-400'
+                      : 'border-slate-200 dark:border-zinc-700 bg-transparent text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase">{t.flat}</span>
+                </button>
             </div>
           </div>
 
           {error && (
-            <div className="p-4 text-sm text-red-600 bg-red-50 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-1">
-              <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="p-3 text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               {error}
             </div>
           )}
@@ -205,15 +186,15 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, isCalculating }) => 
           <button
             type="submit"
             disabled={isCalculating}
-            className="w-full h-14 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-base font-bold text-white shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none transition-all"
+            className="w-full h-10 inline-flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             {isCalculating ? (
               <>
-                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                Processing Smart Data...
+                <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                {t.processing}
               </>
             ) : (
-              'Generate Smart Analysis'
+              t.generate_btn
             )}
           </button>
         </form>
