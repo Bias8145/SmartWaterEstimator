@@ -16,16 +16,29 @@ export type UsageProfile = 'residential' | 'commercial' | 'flat';
 
 // REVISED Weights based on specific user request:
 // Peaks: 05:30-06:30, 11:30-12:30, 15:00-16:30
+// We map these half-hour intervals to the nearest hourly slots.
 const RESIDENTIAL_WEIGHTS: Record<number, number> = {
   0: 0.1, 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.2, 
-  5: 2.8, // 05:00 - 06:00 (Peak start 05:30)
-  6: 3.0, // 06:00 - 07:00 (Peak end 06:30)
+  
+  // Morning Peak: 05:30 - 06:30
+  // Affects Hour 5 (05:00-06:00) and Hour 6 (06:00-07:00)
+  5: 2.5, 
+  6: 2.5, 
+  
   7: 1.0, 8: 0.8, 9: 0.8, 10: 0.8, 
-  11: 2.8, // 11:00 - 12:00 (Peak start 11:30)
-  12: 2.8, // 12:00 - 13:00 (Peak end 12:30)
+  
+  // Lunch Peak: 11:30 - 12:30
+  // Affects Hour 11 (11:00-12:00) and Hour 12 (12:00-13:00)
+  11: 2.8, 
+  12: 2.8, 
+  
   13: 0.8, 14: 0.8, 
-  15: 2.5, // 15:00 - 16:00 (Peak start 15:00)
-  16: 2.8, // 16:00 - 17:00 (Peak end 16:30)
+  
+  // Afternoon Peak: 15:00 - 16:30
+  // Hour 15 is full peak. Hour 16 is half peak.
+  15: 3.0, 
+  16: 2.0, 
+  
   17: 1.5, 18: 1.0, 19: 0.8, 20: 0.5, 21: 0.3, 
   22: 0.2, 23: 0.1
 };
@@ -113,18 +126,30 @@ export const distributeValue = (
         if (seg.rawValue > MAX_REALISTIC_USAGE) {
             const excess = seg.rawValue - MAX_REALISTIC_USAGE;
             // Cap it at 60 (plus a tiny bit of random noise so it doesn't look fake like exactly 60.0)
-            seg.rawValue = MAX_REALISTIC_USAGE - (Math.random() * 2); 
-            excessPool += excess + (Math.random() * 2); 
+            // Using 58 + random(2) ensures it's slightly under or exactly at 60
+            const cappedValue = MAX_REALISTIC_USAGE - (Math.random() * 1.5);
+            
+            excessPool += (seg.rawValue - cappedValue);
+            seg.rawValue = cappedValue;
         }
      });
 
      // Pass 2: Distribute excess to lower values
      if (excessPool > 0) {
-        const recipients = segments.filter(s => s.rawValue < (MAX_REALISTIC_USAGE - 10));
+        // Find segments that have room to grow (e.g., currently < 40)
+        const recipients = segments.filter(s => s.rawValue < (MAX_REALISTIC_USAGE - 20));
+        
         if (recipients.length > 0) {
-            const sharePerRecipient = excessPool / recipients.length;
-            recipients.forEach(s => {
-                s.rawValue += sharePerRecipient;
+            // Distribute unevenly to make it look natural
+            let remainingExcess = excessPool;
+            recipients.forEach((s, idx) => {
+                if (idx === recipients.length - 1) {
+                    s.rawValue += remainingExcess;
+                } else {
+                    const share = (remainingExcess / (recipients.length - idx)) * (0.8 + Math.random() * 0.4);
+                    s.rawValue += share;
+                    remainingExcess -= share;
+                }
             });
         } else {
             // If everyone is high, just spread it back evenly (fallback)
