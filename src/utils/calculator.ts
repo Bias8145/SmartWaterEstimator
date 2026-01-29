@@ -14,16 +14,23 @@ export interface CalculationResult {
 
 export type UsageProfile = 'residential' | 'commercial' | 'flat';
 
-// Weights for Residential: Peaks at 6-9 (Morning) and 17-20 (Evening)
+// REVISED Weights based on specific user request:
+// Peaks: 05:30-06:30, 11:30-12:30, 15:00-16:30
 const RESIDENTIAL_WEIGHTS: Record<number, number> = {
-  0: 0.2, 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.3, 5: 0.8, // Late night / Early morning
-  6: 2.5, 7: 3.0, 8: 2.5, 9: 1.5, 10: 1.2, 11: 1.0, // Morning Peak
-  12: 1.1, 13: 1.0, 14: 1.0, 15: 1.1, 16: 1.5, // Afternoon
-  17: 2.5, 18: 3.0, 19: 2.5, 20: 2.0, 21: 1.5, // Evening Peak
-  22: 1.0, 23: 0.5 // Night
+  0: 0.1, 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.2, 
+  5: 2.8, // 05:00 - 06:00 (Peak start 05:30)
+  6: 3.0, // 06:00 - 07:00 (Peak end 06:30)
+  7: 1.0, 8: 0.8, 9: 0.8, 10: 0.8, 
+  11: 2.8, // 11:00 - 12:00 (Peak start 11:30)
+  12: 2.8, // 12:00 - 13:00 (Peak end 12:30)
+  13: 0.8, 14: 0.8, 
+  15: 2.5, // 15:00 - 16:00 (Peak start 15:00)
+  16: 2.8, // 16:00 - 17:00 (Peak end 16:30)
+  17: 1.5, 18: 1.0, 19: 0.8, 20: 0.5, 21: 0.3, 
+  22: 0.2, 23: 0.1
 };
 
-// Weights for Commercial: High during 8-17, low otherwise
+// Commercial weights (Standard business hours)
 const COMMERCIAL_WEIGHTS: Record<number, number> = {
   0: 0.1, 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.1, 5: 0.2,
   6: 0.5, 7: 1.0, 8: 3.0, 9: 3.5, 10: 3.5, 11: 3.5,
@@ -53,9 +60,10 @@ export const distributeValue = (
     return [];
   }
 
-  const factor = Math.pow(10, precision); // e.g., 10 for 1 decimal, 1 for 0 decimals
+  const factor = Math.pow(10, precision); 
+  const MAX_REALISTIC_USAGE = 60; // Secret Rule: Try to keep usage under 60
 
-  // 1. Calculate Base Weights with HIGH Volatility
+  // 1. Calculate Base Weights with Volatility
   let totalWeight = 0;
   const segments: { hour: number; weight: number; rawValue: number; finalValue: number }[] = [];
 
@@ -63,21 +71,16 @@ export const distributeValue = (
     const currentHour = (startHour + i) % 24;
     const baseWeight = getWeight(currentHour, profile);
     
-    // Volatility Logic:
-    // 1. Base Randomness: ±50% variance (0.5 to 1.5) - Increased base variance
-    // 2. Spike Chance: 20% chance to double the weight (simulating a shower or machine)
-    // 3. Drop Chance: 20% chance to halve the weight (simulating inactivity)
+    // Volatility Logic
+    let randomFactor = 0.5 + Math.random() * 1.0; // 0.5 to 1.5
     
-    let randomFactor = 0.5 + Math.random() * 1.0; 
+    // Occasional Spikes/Drops
+    if (Math.random() < 0.20) randomFactor *= 2.0; 
+    if (Math.random() < 0.20) randomFactor *= 0.3; 
     
-    // Add realistic spikes that can override the trend
-    // E.g., even if baseWeight is low (night), a big spike can make it high
-    if (Math.random() < 0.20) randomFactor *= 2.5; // Stronger spike
-    if (Math.random() < 0.20) randomFactor *= 0.2; // Stronger drop
-    
-    // For very short durations, force extreme variance to ensure "Ups and Downs"
+    // Short duration volatility boost
     if (divisions < 6) {
-        randomFactor = 0.2 + Math.random() * 3.0;
+        randomFactor = 0.2 + Math.random() * 2.5;
     }
 
     const weight = baseWeight * randomFactor;
@@ -91,44 +94,78 @@ export const distributeValue = (
     totalWeight += weight;
   }
 
-  // 2. Distribute Total Diff based on weights
+  // 2. Initial Distribution
   let currentDistributedSum = 0;
-
   segments.forEach(seg => {
-    const rawShare = (seg.weight / totalWeight) * totalDiff;
-    // Floor to precision to avoid overshooting
-    const roundedShare = Math.floor(rawShare * factor) / factor;
+    // Calculate raw share
+    let rawShare = (seg.weight / totalWeight) * totalDiff;
+    seg.rawValue = rawShare;
+  });
+
+  // 2.5 SECRET RULE: Clamp values > 60 if possible
+  // Only apply if the average is reasonable (e.g. < 55)
+  // If average is 80, we can't force it under 60.
+  if ((totalDiff / divisions) < 55) {
+     let excessPool = 0;
+     
+     // Pass 1: Clamp high values
+     segments.forEach(seg => {
+        if (seg.rawValue > MAX_REALISTIC_USAGE) {
+            const excess = seg.rawValue - MAX_REALISTIC_USAGE;
+            // Cap it at 60 (plus a tiny bit of random noise so it doesn't look fake like exactly 60.0)
+            seg.rawValue = MAX_REALISTIC_USAGE - (Math.random() * 2); 
+            excessPool += excess + (Math.random() * 2); 
+        }
+     });
+
+     // Pass 2: Distribute excess to lower values
+     if (excessPool > 0) {
+        const recipients = segments.filter(s => s.rawValue < (MAX_REALISTIC_USAGE - 10));
+        if (recipients.length > 0) {
+            const sharePerRecipient = excessPool / recipients.length;
+            recipients.forEach(s => {
+                s.rawValue += sharePerRecipient;
+            });
+        } else {
+            // If everyone is high, just spread it back evenly (fallback)
+            segments.forEach(s => s.rawValue += (excessPool / segments.length));
+        }
+     }
+  }
+
+  // 3. Rounding & Finalizing
+  segments.forEach(seg => {
+    const roundedShare = Math.floor(seg.rawValue * factor) / factor;
     seg.finalValue = roundedShare;
     currentDistributedSum += roundedShare;
   });
 
-  // 3. Fix the Remainder (The "Smart" Correction)
-  // Because we floored everything, we have a remainder to distribute.
+  // 4. Fix Remainder
   let remainder = Math.round((totalDiff - currentDistributedSum) * factor) / factor;
-  const step = 1 / factor; // e.g., 0.1 or 1 (if precision is 0)
+  const step = 1 / factor;
 
-  // Distribute remainder randomly but weighted towards peaks
   let safetyCounter = 0;
-  while (remainder >= step / 2 && safetyCounter < 10000) { 
+  while (remainder >= (step / 2) && safetyCounter < 10000) { 
     const targetIndex = Math.floor(Math.random() * segments.length);
     const targetSegment = segments[targetIndex];
     
-    targetSegment.finalValue = parseFloat((targetSegment.finalValue + step).toFixed(precision));
-    remainder -= step;
+    // Only add remainder if it doesn't break the secret rule (unless we have no choice)
+    if (targetSegment.finalValue < MAX_REALISTIC_USAGE || safetyCounter > 5000) {
+        targetSegment.finalValue = parseFloat((targetSegment.finalValue + step).toFixed(precision));
+        remainder -= step;
+    }
     safetyCounter++;
   }
 
-  // 4. Construct Final Results
+  // 5. Construct Results
   const results: CalculationResult[] = [];
   let runningTotal = startMeter;
-
-  // Calculate average for peak detection
   const avgUsage = totalDiff / divisions;
 
   segments.forEach((seg, index) => {
     runningTotal += seg.finalValue;
     
-    // Determine if it's a peak relative to this specific set of data
+    // Peak detection logic
     const isPeak = seg.finalValue > avgUsage * 1.1;
 
     results.push({
@@ -141,15 +178,12 @@ export const distributeValue = (
     });
   });
 
-  // Final sanity check: Force the last cumulative to be exactly EndMeter
+  // Final sanity check for cumulative total
   if (results.length > 0) {
     const last = results[results.length - 1];
     const diff = endMeter - last.cumulative;
-    
-    // If there's a tiny drift (floating point error)
     if (Math.abs(diff) > (step / 10)) {
        last.cumulative = endMeter;
-       // Adjust the last value to match, ensuring we respect precision
        last.value = parseFloat((last.value + diff).toFixed(precision));
     }
   }
