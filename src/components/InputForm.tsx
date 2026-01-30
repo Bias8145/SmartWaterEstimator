@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCw, Building2, Home, Activity, Target, Gauge, Timer, RotateCcw, Calculator, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Building2, Home, Activity, Target, Gauge, Timer, RotateCcw, Calculator, AlertTriangle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from './ui/Card';
 import { UsageProfile } from '../utils/calculator';
@@ -19,6 +19,7 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
   const [start, setStart] = useState<string>('');
   const [end, setEnd] = useState<string>('');
   const [divisions, setDivisions] = useState<string>('24');
+  const [startHour, setStartHour] = useState<string>(new Date().getHours().toString());
   const [profile, setProfile] = useState<UsageProfile>('residential');
   const [precision, setPrecision] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +31,9 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
     const startNum = parseFloat(start);
     const endNum = parseFloat(end);
     const divNum = parseInt(divisions);
-    const hourNum = new Date().getHours();
+    const hourNum = parseInt(startHour);
 
-    if (isNaN(startNum) || isNaN(endNum) || isNaN(divNum)) {
+    if (isNaN(startNum) || isNaN(endNum) || isNaN(divNum) || isNaN(hourNum)) {
       setError(t.err_num);
       return;
     }
@@ -55,6 +56,7 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
       setStart('');
       setEnd('');
       setDivisions('24');
+      setStartHour(new Date().getHours().toString());
       setError(null);
       onReset();
   };
@@ -116,7 +118,7 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
           <div className="grid grid-cols-12 gap-3 md:gap-4">
             
             {/* Duration */}
-            <div className="col-span-5">
+            <div className="col-span-6 md:col-span-3">
                 <div className={sectionHeaderClass}>
                     <Timer className="w-3.5 h-3.5" />
                     <span>{t.duration_section}</span>
@@ -131,8 +133,24 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
                 />
             </div>
 
+            {/* Start Hour */}
+            <div className="col-span-6 md:col-span-3">
+                <div className={sectionHeaderClass}>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{t.start_hour_section}</span>
+                </div>
+                <input
+                type="number"
+                min="0"
+                max="23"
+                value={startHour}
+                onChange={(e) => setStartHour(e.target.value)}
+                className={inputClass}
+                />
+            </div>
+
             {/* Precision */}
-            <div className="col-span-7">
+            <div className="col-span-12 md:col-span-6">
                 <div className={sectionHeaderClass}>
                     <Target className="w-3.5 h-3.5" /> 
                     <span>{t.precision_section}</span>

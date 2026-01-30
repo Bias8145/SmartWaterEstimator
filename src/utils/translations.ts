@@ -7,8 +7,9 @@ export const translations = {
     // Form Headers
     config_title: "KONFIGURASI",
     meter_section: "ANGKA METER",
-    duration_section: "DURASI (JAM)",
-    precision_section: "PRESISI DESIMAL",
+    duration_section: "DURASI",
+    start_hour_section: "JAM AWAL",
+    precision_section: "PRESISI",
     profile_section: "POLA PEMAKAIAN",
 
     // Form Inputs
@@ -63,8 +64,9 @@ export const translations = {
     // Form Headers
     config_title: "CONFIGURATION",
     meter_section: "METER READINGS",
-    duration_section: "DURATION (HOURS)",
-    precision_section: "DECIMAL PRECISION",
+    duration_section: "DURATION",
+    start_hour_section: "START HOUR",
+    precision_section: "PRECISION",
     profile_section: "USAGE PATTERN",
 
     // Form Inputs
