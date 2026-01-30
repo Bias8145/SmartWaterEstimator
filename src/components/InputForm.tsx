@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw, Building2, Home, Activity, Target, Gauge, Timer, RotateCcw, Calculator, AlertTriangle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from './ui/Card';
@@ -18,11 +18,30 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
   
   const [start, setStart] = useState<string>('');
   const [end, setEnd] = useState<string>('');
-  const [divisions, setDivisions] = useState<string>('24');
-  const [startHour, setStartHour] = useState<string>(new Date().getHours().toString());
+  
+  // Time Picker States
+  const [startTime, setStartTime] = useState<string>('08:00');
+  const [endTime, setEndTime] = useState<string>('08:00');
+  const [duration, setDuration] = useState<number>(24);
+  
   const [profile, setProfile] = useState<UsageProfile>('residential');
   const [precision, setPrecision] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-calculate duration when times change
+  useEffect(() => {
+    if (startTime && endTime) {
+        const [startH, startM] = startTime.split(':').map(Number);
+        const [endH, endM] = endTime.split(':').map(Number);
+        
+        // Simple hour-based duration for this tool
+        let diff = endH - startH;
+        if (diff < 0) diff += 24;
+        if (diff === 0) diff = 24; // Assume full day if same time
+        
+        setDuration(diff);
+    }
+  }, [startTime, endTime]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,15 +49,14 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
 
     const startNum = parseFloat(start);
     const endNum = parseFloat(end);
-    const divNum = parseInt(divisions);
-    const hourNum = parseInt(startHour);
+    const startHourNum = parseInt(startTime.split(':')[0]);
 
-    if (isNaN(startNum) || isNaN(endNum) || isNaN(divNum) || isNaN(hourNum)) {
+    if (isNaN(startNum) || isNaN(endNum)) {
       setError(t.err_num);
       return;
     }
 
-    if (divNum <= 0) {
+    if (duration <= 0) {
       setError(t.err_dur);
       return;
     }
@@ -49,14 +67,15 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
         return;
     }
     
-    onCalculate(startNum, endNum, divNum, hourNum, profile, precision);
+    onCalculate(startNum, endNum, duration, startHourNum, profile, precision);
   };
 
   const handleResetClick = () => {
       setStart('');
       setEnd('');
-      setDivisions('24');
-      setStartHour(new Date().getHours().toString());
+      setStartTime('08:00');
+      setEndTime('08:00');
+      setDuration(24);
       setError(null);
       onReset();
   };
@@ -114,43 +133,47 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
               </div>
           </div>
 
-          {/* Section 2: Configuration (Compact Grid) */}
-          <div className="grid grid-cols-12 gap-3 md:gap-4">
-            
-            {/* Duration */}
-            <div className="col-span-6 md:col-span-3">
-                <div className={sectionHeaderClass}>
-                    <Timer className="w-3.5 h-3.5" />
-                    <span>{t.duration_section}</span>
-                </div>
-                <input
-                type="number"
-                min="1"
-                max="744"
-                value={divisions}
-                onChange={(e) => setDivisions(e.target.value)}
-                className={inputClass}
-                />
+          {/* Section 2: Time & Duration (Compact Grid) */}
+          <div>
+            <div className={sectionHeaderClass}>
+                <Clock className="w-3.5 h-3.5" />
+                <span>{t.time_section}</span>
             </div>
-
-            {/* Start Hour */}
-            <div className="col-span-6 md:col-span-3">
-                <div className={sectionHeaderClass}>
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{t.start_hour_section}</span>
+            <div className="grid grid-cols-12 gap-3">
+                {/* Start Time */}
+                <div className="col-span-6 md:col-span-4">
+                    <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className={`${inputClass} appearance-none`} // appearance-none helps on some browsers
+                    />
+                    <span className={labelClass}>{t.start_time}</span>
                 </div>
-                <input
-                type="number"
-                min="0"
-                max="23"
-                value={startHour}
-                onChange={(e) => setStartHour(e.target.value)}
-                className={inputClass}
-                />
-            </div>
 
-            {/* Precision */}
-            <div className="col-span-12 md:col-span-6">
+                {/* End Time */}
+                <div className="col-span-6 md:col-span-4">
+                    <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className={`${inputClass} appearance-none`}
+                    />
+                    <span className={labelClass}>{t.end_time}</span>
+                </div>
+
+                {/* Auto Duration Display */}
+                <div className="col-span-12 md:col-span-4">
+                    <div className={`${inputClass} flex items-center justify-center bg-indigo-50/50 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400`}>
+                        {duration} {t.hours}
+                    </div>
+                    <span className={labelClass}>{t.duration_auto}</span>
+                </div>
+            </div>
+          </div>
+
+          {/* Section 3: Precision */}
+          <div>
                 <div className={sectionHeaderClass}>
                     <Target className="w-3.5 h-3.5" /> 
                     <span>{t.precision_section}</span>
@@ -179,10 +202,9 @@ const InputForm: React.FC<InputFormProps> = ({ onCalculate, onReset, isCalculati
                     </button>
                 ))}
                 </div>
-            </div>
           </div>
 
-          {/* Section 3: Profile */}
+          {/* Section 4: Profile */}
           <div>
                 <div className={sectionHeaderClass}>
                     <Activity className="w-3.5 h-3.5" />

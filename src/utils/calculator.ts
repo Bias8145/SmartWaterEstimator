@@ -70,7 +70,6 @@ export const distributeValue = (
   if (divisions <= 0) return [];
   
   // STRICT RULE: End must be > Start. 
-  // We do NOT swap here anymore. Logic expects valid input.
   if (endMeter < startMeter) return [];
 
   const totalDiff = endMeter - startMeter;
@@ -120,13 +119,29 @@ export const distributeValue = (
       }
     }
 
-    // Smart Generation:
-    // With learning, we bias heavily towards the center of the range.
+    // Smart Generation based on Profile
     const center = (min + max) / 2;
     const rangeSpan = (max - min) / 2;
     const effectiveSpan = rangeSpan * (1 - learningFactor * 0.6); // Shrink range as we learn
     
-    let rawWeight = randomInRange(center - effectiveSpan, center + effectiveSpan);
+    let rawWeight;
+
+    if (profile === 'flat') {
+        // Flat Profile:
+        // If constrained, stick to the center of the constraint.
+        // If unconstrained, use a fixed base value (we'll normalize later).
+        if (isConstrained) {
+            rawWeight = center; 
+        } else {
+            // For unconstrained hours in 'flat' mode, we want them to be even.
+            // We use a neutral weight (e.g., average of day/night range centers)
+            rawWeight = 15; // Arbitrary base, will be normalized by totalDiff
+        }
+    } else {
+        // Residential / Commercial:
+        // Use random fluctuation
+        rawWeight = randomInRange(center - effectiveSpan, center + effectiveSpan);
+    }
 
     segments.push({ 
         originalIndex: i,
@@ -142,50 +157,46 @@ export const distributeValue = (
 
   // 3. Smoothing & Balancing (The "Smart" Logic)
   
-  // A. Smooth Transitions (Prevent drastic jumps between adjacent hours)
-  for (let i = 1; i < segments.length; i++) {
-    const prev = segments[i-1];
-    const curr = segments[i];
+  // Only apply smoothing for non-flat profiles to keep 'flat' truly flat where possible
+  if (profile !== 'flat') {
+      // A. Smooth Transitions
+      for (let i = 1; i < segments.length; i++) {
+        const prev = segments[i-1];
+        const curr = segments[i];
 
-    // Only smooth if not entering a constrained peak zone
-    if (!curr.isConstrained || !prev.isConstrained) {
-        const diff = Math.abs(curr.weight - prev.weight);
-        const avg = (curr.weight + prev.weight) / 2;
-        
-        // If variance is too high, dampen it
-        if (diff > avg * 0.5) {
-            curr.weight = curr.weight * 0.7 + avg * 0.3;
-            prev.weight = prev.weight * 0.7 + avg * 0.3;
+        if (!curr.isConstrained || !prev.isConstrained) {
+            const diff = Math.abs(curr.weight - prev.weight);
+            const avg = (curr.weight + prev.weight) / 2;
+            
+            if (diff > avg * 0.5) {
+                curr.weight = curr.weight * 0.7 + avg * 0.3;
+                prev.weight = prev.weight * 0.7 + avg * 0.3;
+            }
         }
-    }
-  }
+      }
 
-  // B. 2-Hour Block Balancing (Prevent 49/11 splits)
-  // We iterate through pairs.
-  for (let i = 0; i < segments.length - 1; i += 2) {
-      const s1 = segments[i];
-      const s2 = segments[i+1];
-      
-      // Only balance if they are in the same "zone" (e.g. both peak or both normal)
-      if (s1.isPeak === s2.isPeak) {
-          const sum = s1.weight + s2.weight;
-          const ratio = s1.weight / sum;
+      // B. 2-Hour Block Balancing
+      for (let i = 0; i < segments.length - 1; i += 2) {
+          const s1 = segments[i];
+          const s2 = segments[i+1];
           
-          // If unbalanced (e.g. < 30% or > 70%), pull towards 50/50
-          if (ratio < 0.35 || ratio > 0.65) {
-              const target = sum / 2;
-              // Move 50% of the way towards balance
-              s1.weight = s1.weight * 0.5 + target * 0.5;
-              s2.weight = s2.weight * 0.5 + target * 0.5;
+          if (s1.isPeak === s2.isPeak) {
+              const sum = s1.weight + s2.weight;
+              const ratio = s1.weight / sum;
+              
+              if (ratio < 0.35 || ratio > 0.65) {
+                  const target = sum / 2;
+                  s1.weight = s1.weight * 0.5 + target * 0.5;
+                  s2.weight = s2.weight * 0.5 + target * 0.5;
+              }
           }
       }
   }
 
-  // Recalculate total weight after smoothing
+  // Recalculate total weight
   totalWeight = segments.reduce((sum, s) => sum + s.weight, 0);
 
   // 4. Distribute Values (Largest Remainder Method)
-  // This ensures the SUM matches totalDiff exactly.
   let currentSum = 0;
   
   segments.forEach(seg => {
@@ -203,13 +214,12 @@ export const distributeValue = (
 
   // Distribute remainder
   let missingValue = totalDiff - currentSum;
-  // Fix floating point issues
   missingValue = parseFloat(missingValue.toFixed(precision));
   
   let stepsToAdd = Math.round(missingValue * factor);
   const stepSize = 1 / factor;
 
-  // Sort by fractional part to distribute remainder fairly
+  // Sort by fractional part
   const sortedSegments = [...segments].sort((a, b) => b.fractionalPart - a.fractionalPart);
 
   for (let i = 0; i < stepsToAdd; i++) {

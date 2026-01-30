@@ -7,21 +7,24 @@ export const translations = {
     // Form Headers
     config_title: "KONFIGURASI",
     meter_section: "ANGKA METER",
-    duration_section: "DURASI",
-    start_hour_section: "JAM AWAL",
+    time_section: "WAKTU PEMAKAIAN",
     precision_section: "PRESISI",
     profile_section: "POLA PEMAKAIAN",
 
     // Form Inputs
     start_meter: "Meter Awal",
     end_meter: "Meter Akhir",
+    start_time: "Jam Awal",
+    end_time: "Jam Akhir",
+    duration_auto: "Durasi Otomatis",
+    hours: "Jam",
     generate_btn: "Analisis Data",
     reset_btn: "Reset Data",
     processing: "Memproses...",
     
     // Profiles
     residential: "Rumah",
-    commercial: "Bisnis",
+    commercial: "Industri",
     flat: "Rata",
     
     // Table
@@ -64,21 +67,24 @@ export const translations = {
     // Form Headers
     config_title: "CONFIGURATION",
     meter_section: "METER READINGS",
-    duration_section: "DURATION",
-    start_hour_section: "START HOUR",
+    time_section: "USAGE TIME",
     precision_section: "PRECISION",
     profile_section: "USAGE PATTERN",
 
     // Form Inputs
     start_meter: "Start Meter",
     end_meter: "End Meter",
+    start_time: "Start Time",
+    end_time: "End Time",
+    duration_auto: "Auto Duration",
+    hours: "Hours",
     generate_btn: "Generate Analysis",
     reset_btn: "Reset Data",
     processing: "Processing...",
     
     // Profiles
     residential: "Home",
-    commercial: "Business",
+    commercial: "Industry",
     flat: "Flat",
     
     // Table
