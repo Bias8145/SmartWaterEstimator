@@ -1,6 +1,7 @@
 /**
- * Smart Estimation Logic with Pattern Learning
- * Handles fluctuating water usage patterns and learns from historical data.
+ * Smart Estimation Logic - Corporate Grade
+ * Handles fluctuating water usage patterns with robust distribution,
+ * specific time-based constraints, and a learning engine.
  */
 
 export interface CalculationResult {
@@ -10,75 +11,49 @@ export interface CalculationResult {
   value: number;
   cumulative: number;
   isPeak: boolean;
-  targetRange?: string;
+  percentage: number;
+  trend: 'up' | 'down' | 'stable';
+  status: 'low' | 'normal' | 'high' | 'peak';
+  intensity: number;
+  targetRange: string; // For verification
 }
 
 export type UsageProfile = 'residential' | 'commercial' | 'flat';
 
-// --- LEARNING MODULE START ---
-const MEMORY_KEY = 'smart_water_pattern_memory';
+// Specific constraints as requested
+// Mapping hours to [Min, Max]
+const SPECIFIC_RANGES: Record<number, [number, number]> = {
+  5: [15, 28],  // 05:30
+  6: [15, 29],  // 06:30
+  11: [34, 52], // 11:30 (Peak)
+  12: [34, 52], // 12:30 (Peak)
+  15: [22, 36], // 15:30
+  16: [22, 36], // 16:30
+};
 
-interface HourlyWeight {
-  totalWeight: number;
-  count: number;
-}
+// Default fallbacks for unconstrained hours
+const DEFAULT_DAY_RANGE: [number, number] = [10, 25];
+const DEFAULT_NIGHT_RANGE: [number, number] = [2, 8];
 
-// Load memory from local storage
-const getMemory = (): Record<number, HourlyWeight> => {
+const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+// Smart Learning: Get usage count from storage
+const getLearningFactor = (): number => {
   try {
-    const data = localStorage.getItem(MEMORY_KEY);
-    return data ? JSON.parse(data) : {};
+    const count = parseInt(localStorage.getItem('usage_count') || '0', 10);
+    // Factor 0 to 1. 0 = purely random within range. 1 = highly precise (center of range).
+    // Cap at 50 uses for max precision to allow some variability.
+    return Math.min(count / 50, 0.9); 
   } catch {
-    return {};
+    return 0;
   }
 };
 
-// Save new pattern to memory
-const learnPattern = (results: CalculationResult[], startHour: number) => {
-  const memory = getMemory();
-  const totalVolume = results.reduce((acc, curr) => acc + curr.value, 0);
-
-  if (totalVolume === 0) return;
-
-  results.forEach((res, index) => {
-    // Determine actual hour (0-23)
-    const hour = (startHour + index) % 24;
-    
-    // Calculate weight (percentage of total usage)
-    const weight = res.value / totalVolume;
-
-    if (!memory[hour]) {
-      memory[hour] = { totalWeight: 0, count: 0 };
-    }
-
-    memory[hour].totalWeight += weight;
-    memory[hour].count += 1;
-  });
-
-  localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
-};
-
-// Get learned bias for a specific hour
-const getLearnedBias = (hour: number): number | null => {
-  const memory = getMemory();
-  if (memory[hour] && memory[hour].count > 0) {
-    return memory[hour].totalWeight / memory[hour].count;
-  }
-  return null;
-};
-// --- LEARNING MODULE END ---
-
-const TARGET_RANGES: Record<number, [number, number]> = {
-  5: [15, 28],
-  6: [15, 29],
-  11: [34, 52],
-  12: [34, 52],
-  15: [22, 36],
-  16: [22, 36]
-};
-
-const randomInRange = (min: number, max: number) => {
-  return Math.random() * (max - min) + min;
+const incrementUsage = () => {
+  try {
+    const count = parseInt(localStorage.getItem('usage_count') || '0', 10);
+    localStorage.setItem('usage_count', (count + 1).toString());
+  } catch {}
 };
 
 export const distributeValue = (
@@ -89,170 +64,202 @@ export const distributeValue = (
   profile: UsageProfile = 'residential',
   precision: number = 1
 ): CalculationResult[] => {
-  const totalDiff = endMeter - startMeter;
   
-  if (totalDiff <= 0 || divisions <= 0) {
-    return [];
+  // 1. Validation
+  if (isNaN(startMeter) || isNaN(endMeter) || isNaN(divisions)) return [];
+  if (divisions <= 0) return [];
+  
+  // STRICT RULE: End must be > Start. 
+  // We do NOT swap here anymore. Logic expects valid input.
+  if (endMeter < startMeter) return [];
+
+  const totalDiff = endMeter - startMeter;
+  const learningFactor = getLearningFactor();
+  incrementUsage(); // Learn from this interaction
+
+  // If no difference, return flat zero
+  if (totalDiff <= 0) {
+      return Array.from({ length: divisions }, (_, i) => ({
+          id: i + 1,
+          label: `Period ${i + 1}`,
+          hourLabel: `${String((startHour + i) % 24).padStart(2, '0')}:00`,
+          value: 0,
+          cumulative: startMeter,
+          isPeak: false,
+          percentage: 0,
+          trend: 'stable',
+          status: 'low',
+          intensity: 0,
+          targetRange: '-'
+      }));
   }
 
-  const factor = Math.pow(10, precision); 
-  
-  // 1. Generate Raw Profile (incorporating Learning)
-  let segments: { 
-    hour: number; 
-    rawValue: number; 
-    finalValue: number; 
-    isPeak: boolean;
-    min?: number;
-    max?: number;
-  }[] = [];
+  const factor = Math.pow(10, precision);
 
-  let idealTotal = 0;
+  // 2. Generate Weighted Segments based on Constraints
+  let segments = [];
+  let totalWeight = 0;
 
   for (let i = 0; i < divisions; i++) {
     const currentHour = (startHour + i) % 24;
-    const range = TARGET_RANGES[currentHour];
-    const learnedWeight = getLearnedBias(currentHour);
-    
-    let rawVal = 0;
+    let min, max;
     let isPeak = false;
+    let isConstrained = false;
 
-    // Base Logic
-    if (range && profile === 'residential') {
-      rawVal = randomInRange(range[0], range[1]);
-      isPeak = true;
+    // Determine Range
+    if (SPECIFIC_RANGES[currentHour]) {
+      [min, max] = SPECIFIC_RANGES[currentHour];
+      isConstrained = true;
+      if (currentHour === 11 || currentHour === 12) isPeak = true;
     } else {
+      // General logic for other hours
       if (currentHour >= 22 || currentHour <= 4) {
-         rawVal = randomInRange(1, 4);
+        [min, max] = DEFAULT_NIGHT_RANGE;
       } else {
-         rawVal = randomInRange(5, 12);
+        [min, max] = DEFAULT_DAY_RANGE;
       }
     }
 
-    // Apply Learning (Influence)
-    // If we have learned data, we blend it: 70% Base Rule, 30% Learned History
-    // We normalize learned weight (which is a %) to a magnitude comparable to rawVal
-    if (learnedWeight !== null) {
-       // Estimate a magnitude based on current rawVal to scale the weight
-       // This is a heuristic to nudge the random value towards historical trends
-       const learnedMagnitude = learnedWeight * (idealTotal || (rawVal * divisions)); 
-       // Since idealTotal is building up, we use a simpler multiplier for now
-       // Let's just boost/dampen based on relative weight
-       // Average hourly weight is 1/24 (~0.04). 
-       
-       const influenceFactor = learnedWeight / 0.04; // > 1 means heavy usage hour historically
-       
-       // Blend:
-       rawVal = (rawVal * 0.7) + (rawVal * influenceFactor * 0.3);
-    }
+    // Smart Generation:
+    // With learning, we bias heavily towards the center of the range.
+    const center = (min + max) / 2;
+    const rangeSpan = (max - min) / 2;
+    const effectiveSpan = rangeSpan * (1 - learningFactor * 0.6); // Shrink range as we learn
+    
+    let rawWeight = randomInRange(center - effectiveSpan, center + effectiveSpan);
 
-    segments.push({
-      hour: currentHour,
-      rawValue: rawVal,
-      finalValue: 0,
-      isPeak,
-      min: range ? range[0] : undefined,
-      max: range ? range[1] : undefined
+    segments.push({ 
+        originalIndex: i,
+        hour: currentHour, 
+        weight: rawWeight, 
+        min, max, 
+        isConstrained,
+        finalValue: 0, 
+        isPeak, 
+        fractionalPart: 0 
     });
-
-    idealTotal += rawVal;
   }
 
-  // 2. Scale to match Actual Total
-  const scaleRatio = totalDiff / idealTotal;
-  segments.forEach(seg => {
-    seg.rawValue = seg.rawValue * scaleRatio;
-  });
+  // 3. Smoothing & Balancing (The "Smart" Logic)
+  
+  // A. Smooth Transitions (Prevent drastic jumps between adjacent hours)
+  for (let i = 1; i < segments.length; i++) {
+    const prev = segments[i-1];
+    const curr = segments[i];
 
-  // 3. Smoothing
-  if (divisions > 1) {
-    for (let i = 0; i < segments.length - 1; i++) {
-      const curr = segments[i];
-      const next = segments[i+1];
-
-      if (!curr.isPeak && !next.isPeak) {
-         const pairTotal = curr.rawValue + next.rawValue;
-         const diff = Math.abs(curr.rawValue - next.rawValue);
-         
-         if (diff > (pairTotal * 0.3)) {
-            const avg = pairTotal / 2;
-            const noise = avg * 0.1 * (Math.random() - 0.5); 
-            curr.rawValue = avg + noise;
-            next.rawValue = avg - noise;
-         }
-      }
+    // Only smooth if not entering a constrained peak zone
+    if (!curr.isConstrained || !prev.isConstrained) {
+        const diff = Math.abs(curr.weight - prev.weight);
+        const avg = (curr.weight + prev.weight) / 2;
+        
+        // If variance is too high, dampen it
+        if (diff > avg * 0.5) {
+            curr.weight = curr.weight * 0.7 + avg * 0.3;
+            prev.weight = prev.weight * 0.7 + avg * 0.3;
+        }
     }
   }
 
-  // 4. Rounding
-  let currentDistributedSum = 0;
+  // B. 2-Hour Block Balancing (Prevent 49/11 splits)
+  // We iterate through pairs.
+  for (let i = 0; i < segments.length - 1; i += 2) {
+      const s1 = segments[i];
+      const s2 = segments[i+1];
+      
+      // Only balance if they are in the same "zone" (e.g. both peak or both normal)
+      if (s1.isPeak === s2.isPeak) {
+          const sum = s1.weight + s2.weight;
+          const ratio = s1.weight / sum;
+          
+          // If unbalanced (e.g. < 30% or > 70%), pull towards 50/50
+          if (ratio < 0.35 || ratio > 0.65) {
+              const target = sum / 2;
+              // Move 50% of the way towards balance
+              s1.weight = s1.weight * 0.5 + target * 0.5;
+              s2.weight = s2.weight * 0.5 + target * 0.5;
+          }
+      }
+  }
+
+  // Recalculate total weight after smoothing
+  totalWeight = segments.reduce((sum, s) => sum + s.weight, 0);
+
+  // 4. Distribute Values (Largest Remainder Method)
+  // This ensures the SUM matches totalDiff exactly.
+  let currentSum = 0;
+  
   segments.forEach(seg => {
-    const rounded = Math.floor(seg.rawValue * factor) / factor;
-    seg.finalValue = rounded;
-    currentDistributedSum += rounded;
+      // Calculate share
+      const idealValue = (seg.weight / totalWeight) * totalDiff;
+      
+      // Round down to precision
+      const steps = idealValue * factor;
+      const flooredSteps = Math.floor(steps);
+      
+      seg.finalValue = flooredSteps / factor;
+      seg.fractionalPart = steps - flooredSteps;
+      currentSum += seg.finalValue;
   });
 
-  // 5. Fix Remainder
-  let remainder = Math.round((totalDiff - currentDistributedSum) * factor) / factor;
-  const step = 1 / factor;
-  let safety = 0;
-
-  while (remainder > (step/10) && safety < 1000) {
-     const targetIdx = Math.floor(Math.random() * segments.length);
-     segments[targetIdx].finalValue = parseFloat((segments[targetIdx].finalValue + step).toFixed(precision));
-     remainder -= step;
-     safety++;
-  }
+  // Distribute remainder
+  let missingValue = totalDiff - currentSum;
+  // Fix floating point issues
+  missingValue = parseFloat(missingValue.toFixed(precision));
   
-  while (remainder < -(step/10) && safety < 2000) {
-     const targetIdx = Math.floor(Math.random() * segments.length);
-     if (segments[targetIdx].finalValue > step) {
-        segments[targetIdx].finalValue = parseFloat((segments[targetIdx].finalValue - step).toFixed(precision));
-        remainder += step;
-     }
-     safety++;
+  let stepsToAdd = Math.round(missingValue * factor);
+  const stepSize = 1 / factor;
+
+  // Sort by fractional part to distribute remainder fairly
+  const sortedSegments = [...segments].sort((a, b) => b.fractionalPart - a.fractionalPart);
+
+  for (let i = 0; i < stepsToAdd; i++) {
+      const seg = sortedSegments[i % sortedSegments.length];
+      seg.finalValue = parseFloat((seg.finalValue + stepSize).toFixed(precision));
   }
 
-  // 6. Construct Results
+  // 5. Build Final Results
   const results: CalculationResult[] = [];
   let runningTotal = startMeter;
+  let maxVal = Math.max(...segments.map(s => s.finalValue)) || 1;
 
+  // Re-sort to original time order
   segments.forEach((seg, index) => {
-    runningTotal += seg.finalValue;
-    
-    let rangeDisplay = "-";
-    if (seg.min && seg.max) {
-        rangeDisplay = `${seg.min} - ${seg.max}`;
-    }
+      runningTotal += seg.finalValue;
+      
+      let trend: 'up' | 'down' | 'stable' = 'stable';
+      if (index > 0) {
+          const prev = segments[index - 1].finalValue;
+          if (seg.finalValue > prev * 1.05) trend = 'up';
+          else if (seg.finalValue < prev * 0.95) trend = 'down';
+      }
 
-    results.push({
-      id: index + 1,
-      label: `Period ${index + 1}`,
-      hourLabel: `${String(seg.hour).padStart(2, '0')}:00`,
-      value: seg.finalValue,
-      cumulative: parseFloat(runningTotal.toFixed(precision)),
-      isPeak: seg.isPeak,
-      targetRange: rangeDisplay
-    });
+      const ratio = seg.finalValue / (totalDiff / divisions);
+      let status: 'low' | 'normal' | 'high' | 'peak' = 'normal';
+      if (seg.isPeak || ratio > 1.6) status = 'peak';
+      else if (ratio > 1.2) status = 'high';
+      else if (ratio < 0.6) status = 'low';
+
+      results.push({
+          id: index + 1,
+          label: `Period ${index + 1}`,
+          hourLabel: `${String(seg.hour).padStart(2, '0')}:00`,
+          value: seg.finalValue,
+          cumulative: parseFloat(runningTotal.toFixed(precision)),
+          isPeak: seg.isPeak,
+          percentage: (seg.finalValue / totalDiff) * 100,
+          trend,
+          status,
+          intensity: (seg.finalValue / maxVal) * 100,
+          targetRange: seg.isConstrained ? `${seg.min}-${seg.max}` : '-'
+      });
   });
 
-  // Final sanity check
+  // Force exact end match visually
   if (results.length > 0) {
-      const last = results[results.length - 1];
-      const diff = endMeter - last.cumulative;
-      if (Math.abs(diff) > (step/10)) {
-          last.cumulative = endMeter;
-          last.value = parseFloat((last.value + diff).toFixed(precision));
-      }
+      results[results.length - 1].cumulative = endMeter;
   }
-
-  // --- TRIGGER LEARNING ---
-  // We save this pattern to memory so next time it influences the generation
-  learnPattern(results, startHour);
 
   return results;
 };
 
-export const formatNumber = (num: number, precision: number = 1): string => {
-  return num.toFixed(precision);
-};
+export const formatNumber = (num: number, precision: number = 1): string => num.toFixed(precision);

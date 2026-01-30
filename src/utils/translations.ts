@@ -2,19 +2,20 @@ export const translations = {
   id: {
     title: "Estimasi Meter Air",
     subtitle: "Alat Bantu Cerdas",
-    desc: "Generator pola pemakaian air fluktuatif dengan presisi tinggi.",
+    desc: "Sistem Analisis Distribusi Air. Simulasi pola pemakaian fluktuatif berbasis algoritma presisi tinggi.",
     
     // Form Headers
     config_title: "KONFIGURASI",
     meter_section: "ANGKA METER",
     duration_section: "DURASI (JAM)",
-    precision_section: "# PRESISI DESIMAL",
+    precision_section: "PRESISI DESIMAL",
     profile_section: "POLA PEMAKAIAN",
 
     // Form Inputs
     start_meter: "Meter Awal",
     end_meter: "Meter Akhir",
     generate_btn: "Analisis Data",
+    reset_btn: "Reset Data",
     processing: "Memproses...",
     
     // Profiles
@@ -23,15 +24,25 @@ export const translations = {
     flat: "Rata",
     
     // Table
-    breakdown: "Rincian Data",
+    breakdown: "Rincian Analisis",
     copy: "Salin",
     copied: "Tersalin",
-    time: "Jam Ke-",
-    usage: "Pemakaian (m³)",
+    time: "Waktu",
+    usage: "Pemakaian",
     reading: "Angka Meter",
     total: "Total Selisih",
     verified: "Terverifikasi Tepat",
+    status: "Status",
+    trend: "Tren",
+    intensity: "Intensitas",
+    target_range: "Range Target",
     
+    // Statuses
+    st_peak: "Puncak",
+    st_high: "Tinggi",
+    st_normal: "Normal",
+    st_low: "Rendah",
+
     // Chart
     peak: "Puncak",
     avg: "Rata-rata",
@@ -41,24 +52,26 @@ export const translations = {
     // Errors
     err_num: "Masukkan angka valid.",
     err_dur: "Durasi harus > 0.",
-    err_logic: "Meter Akhir harus > Awal.",
+    err_logic: "Meter Akhir HARUS lebih besar dari Awal.",
+    err_calc: "Gagal memproses. Cek input.",
   },
   en: {
     title: "Water Meter Estimation",
     subtitle: "Smart Support Tool",
-    desc: "High-precision fluctuating water usage pattern generator.",
+    desc: "Water Distribution Analysis System. High-precision algorithm-based fluctuating usage pattern simulation.",
     
     // Form Headers
     config_title: "CONFIGURATION",
     meter_section: "METER READINGS",
     duration_section: "DURATION (HOURS)",
-    precision_section: "# DECIMAL PRECISION",
+    precision_section: "DECIMAL PRECISION",
     profile_section: "USAGE PATTERN",
 
     // Form Inputs
     start_meter: "Start Meter",
     end_meter: "End Meter",
     generate_btn: "Generate Analysis",
+    reset_btn: "Reset Data",
     processing: "Processing...",
     
     // Profiles
@@ -67,14 +80,24 @@ export const translations = {
     flat: "Flat",
     
     // Table
-    breakdown: "Detailed Breakdown",
+    breakdown: "Analysis Breakdown",
     copy: "Copy",
     copied: "Copied",
-    time: "Period",
-    usage: "Usage (m³)",
+    time: "Time",
+    usage: "Usage",
     reading: "Meter Reading",
     total: "Total Diff",
     verified: "Verified Exact",
+    status: "Status",
+    trend: "Trend",
+    intensity: "Intensity",
+    target_range: "Target Range",
+    
+    // Statuses
+    st_peak: "Peak",
+    st_high: "High",
+    st_normal: "Normal",
+    st_low: "Low",
     
     // Chart
     peak: "Peak",
@@ -85,6 +108,7 @@ export const translations = {
     // Errors
     err_num: "Enter valid numbers.",
     err_dur: "Duration must be > 0.",
-    err_logic: "End Meter must be > Start.",
+    err_logic: "End Meter MUST be greater than Start.",
+    err_calc: "Calculation failed. Check inputs.",
   }
 };

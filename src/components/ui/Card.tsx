@@ -12,9 +12,10 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-[2.5rem] border-0 transition-all duration-300", 
+        "rounded-[2rem] border-0 transition-all duration-300", 
         "bg-white shadow-sm text-slate-900", 
-        "dark:bg-[#18181b] dark:text-zinc-100",
+        // Specific dark mode override to match reference (dark charcoal)
+        "dark:bg-[#121212] dark:text-zinc-100",
         className
       )}
       {...props}
@@ -23,7 +24,7 @@ export function Card({ className, ...props }: CardProps) {
 }
 
 export function CardHeader({ className, ...props }: CardProps) {
-  return <div className={cn("flex flex-col space-y-1.5 p-5 pb-2", className)} {...props} />;
+  return <div className={cn("flex flex-col space-y-1.5 p-4 md:p-5 pb-2", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -36,5 +37,5 @@ export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHead
 }
 
 export function CardContent({ className, ...props }: CardProps) {
-  return <div className={cn("p-5 pt-2", className)} {...props} />;
+  return <div className={cn("p-4 md:p-5 pt-2", className)} {...props} />;
 }
